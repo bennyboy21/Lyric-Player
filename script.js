@@ -1,86 +1,98 @@
-// ---------- CONFIG ----------
-const clientId = '86d5980bc6284ccba0515e63ddd32845'; // Replace with your Spotify client ID
-const redirectUri = window.location.origin + window.location.pathname; // Current page
-const scopes = 'user-read-currently-playing';
+const clientId = "86d5980bc6284ccba0515e63ddd32845"; // from Spotify dashboard
+const redirectUri = window.location.origin; // your page URL
+const scopes = [
+  "user-read-playback-state",
+  "user-read-currently-playing",
+].join(" ");
 
-// ---------- AUTH ----------
-function loginSpotify() {
-    const authUrl = `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}`;
-    window.location.href = authUrl;
+function generateRandomString(length) {
+  const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let text = "";
+  for (let i = 0; i < length; i++) {
+    text += possible.charAt(Math.floor(Math.random() * possible.length));
+  }
+  return text;
 }
 
-// Get Spotify access token from URL hash
-function getSpotifyToken() {
-    const hash = window.location.hash.substring(1);
-    const params = new URLSearchParams(hash);
-    return params.get('access_token');
+function base64encode(string) {
+  return btoa(String.fromCharCode.apply(null, new Uint8Array(string)))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 }
 
-// ---------- SPOTIFY API ----------
+async function sha256(plain) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(plain);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return base64encode(hash);
+}
+
+// Step 1: redirect to Spotify login
+async function loginWithSpotify() {
+  const codeVerifier = generateRandomString(128);
+  localStorage.setItem("code_verifier", codeVerifier);
+
+  const codeChallenge = await sha256(codeVerifier);
+
+  const url = new URL("https://accounts.spotify.com/authorize");
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("client_id", clientId);
+  url.searchParams.set("scope", scopes);
+  url.searchParams.set("redirect_uri", redirectUri);
+  url.searchParams.set("code_challenge_method", "S256");
+  url.searchParams.set("code_challenge", codeChallenge);
+
+  window.location = url.toString();
+}
+
+// Step 2: get access token after redirect
+async function getAccessToken() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("code");
+  if (!code) return;
+
+  const codeVerifier = localStorage.getItem("code_verifier");
+
+  const body = new URLSearchParams();
+  body.append("client_id", clientId);
+  body.append("grant_type", "authorization_code");
+  body.append("code", code);
+  body.append("redirect_uri", redirectUri);
+  body.append("code_verifier", codeVerifier);
+
+  const response = await fetch("https://accounts.spotify.com/api/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+
+  const data = await response.json();
+  return data.access_token;
+}
+
+// Step 3: get currently playing track
 async function getCurrentTrack(token) {
-    try {
-        const response = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
-            headers: { Authorization: `Bearer ${token}` }
-        });
-
-        if (response.status === 204) {
-            return null; // No track is currently playing
-        }
-
-        if (!response.ok) {
-            console.error('Spotify API error:', response.status);
-            return null;
-        }
-
-        const data = await response.json();
-        return {
-            artist: data.item.artists[0].name,
-            title: data.item.name
-        };
-    } catch (err) {
-        console.error('Error fetching Spotify track:', err);
-        return null;
-    }
+  const res = await fetch("https://api.spotify.com/v1/me/player/currently-playing", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 204) return null; // no track playing
+  return await res.json();
 }
 
-// ---------- LYRICS OVH API ----------
-async function getLyrics(artist, title) {
-    try {
-        const response = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`);
-        if (!response.ok) {
-            console.error('Lyrics API error:', response.status);
-            return null;
-        }
-        const data = await response.json();
-        return data.lyrics || null;
-    } catch (err) {
-        console.error('Error fetching lyrics:', err);
-        return null;
-    }
-}
-
-// ---------- DISPLAY ----------
-async function showLyrics() {
-    const token = getSpotifyToken();
-    if (!token) {
-        console.log('Not logged in. Redirecting to Spotify login...');
-        loginSpotify();
-        return;
-    }
-
+// Example usage
+(async () => {
+  const params = new URLSearchParams(window.location.search);
+  if (!params.get("code")) {
+    document.body.innerHTML = `<button id="login">Login with Spotify</button>`;
+    document.getElementById("login").onclick = loginWithSpotify;
+  } else {
+    const token = await getAccessToken();
     const track = await getCurrentTrack(token);
-    if (!track) {
-        document.getElementById('lyrics').innerText = 'No track currently playing.';
-        return;
+    if (track) {
+      console.log("Currently playing:", track.item.name, "by", track.item.artists.map(a => a.name).join(", "));
+    } else {
+      console.log("No track currently playing");
     }
-
-    document.getElementById('track-info').innerText = `Currently playing: ${track.title} by ${track.artist}`;
-
-    const lyrics = await getLyrics(track.artist, track.title);
-    document.getElementById('lyrics').innerText = lyrics || 'Lyrics not found.';
-}
-
-// ---------- RUN ----------
-window.addEventListener('load', () => {
-    showLyrics();
-});
+  }
+})();
