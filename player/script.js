@@ -3,6 +3,8 @@
 const clientId = "86d5980bc6284ccba0515e63ddd32845";
 const redirectUri = "https://bennyboy21.github.io/Lyric-Player/player/";
 const scopes = ["user-read-playback-state","user-read-currently-playing"].join(" ");
+let lastTrackId = null;
+
 
 function generateRandomString(length) {
     const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -79,7 +81,6 @@ async function getCurrentTrack(token) {
     }
 }
 
-// Show track
 async function showCurrentTrack(token) {
     const elTrack = document.getElementById("track");
     const elArtist = document.getElementById("artist");
@@ -88,19 +89,18 @@ async function showCurrentTrack(token) {
 
     const track = await getCurrentTrack(token);
 
-    if (track) {
+    if (track && track.item.id !== lastTrackId) {
+        lastTrackId = track.item.id;
         elTrack.textContent = track.item.name;
         elArtist.textContent = track.item.artists.map(a => a.name).join(", ");
         elStatus.textContent = "Now Playing";
         elAlbumArt.src = track.item.album.images[0]?.url || "";
         elAlbumArt.style.display = "block";
-    } else {
-        elTrack.textContent = "";
-        elArtist.textContent = "";
+    } else if (!track) {
         elStatus.textContent = "Open Spotify Web or Desktop to see your track";
-        elAlbumArt.style.display = "none";
     }
 }
+
 
 // Main
 (async () => {
