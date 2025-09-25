@@ -1,13 +1,62 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script defer src="script.js"></script>
-    <title>Lyrical Player - Login</title>
+    <title>Spotify Now Playing</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 600px; 
+            margin: 2rem auto; 
+            text-align: center;
+            background: #121212;
+            color: white;
+        }
+        #login-btn { 
+            padding: 15px 30px; 
+            font-size: 1.2em; 
+            background: #1DB954; 
+            color: white; 
+            border: none; 
+            border-radius: 25px; 
+            cursor: pointer;
+        }
+        #player-section { 
+            display: none; 
+            margin-top: 2rem;
+        }
+        #album-art { 
+            width: 300px; 
+            height: 300px; 
+            object-fit: cover; 
+            border-radius: 10px;
+            margin: 0 auto;
+        }
+        #song-title { 
+            font-size: 1.5em; 
+            margin: 1rem 0 0.5rem; 
+            font-weight: bold;
+        }
+        #artist-name { 
+            font-size: 1.2em; 
+            margin-bottom: 0.5rem; 
+            color: #b3b3b3;
+        }
+        #playback-status { 
+            margin-top: 1rem; 
+            color: #1DB954;
+        }
+    </style>
 </head>
 <body>
-    <h1 id="track-info">Loading...</h1>
-    <pre id="lyrics">Fetching lyrics...</pre>
+    <button id="login-btn">Login with Spotify</button>
+    
+    <div id="player-section">
+        <img id="album-art" src="" alt="Album Art">
+        <div id="song-title"></div>
+        <div id="artist-name"></div>
+        <div id="playback-status"></div>
+    </div>
+
+    <script type="module" src="app.js"></script>
 </body>
 </html>
