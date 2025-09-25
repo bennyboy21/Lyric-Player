@@ -1,5 +1,6 @@
 // Make sure this script is loaded as a module:
 // <script type="module" src="script.js"></script>
+// My Newest Script
 
 const clientId = "86d5980bc6284ccba0515e63ddd32845";
 const redirectUri = "https://bennyboy21.github.io/Lyric-Player/player/";
