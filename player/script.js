@@ -1,10 +1,8 @@
-// Make sure this script is loaded as a module:
-// <script type="module" src="script.js"></script>
 // My Newest Script
 
 const clientId = "86d5980bc6284ccba0515e63ddd32845";
 const redirectUri = "https://bennyboy21.github.io/Lyric-Player/player/";
-const scopes = ["user-read-playback-state","user-read-currently-playing"].join(" ");
+const scopes = ["user-read-playback-state","user-read-currently-playing","user-modify-playback-state"].join(" ");
 
 // --- PKCE helpers ---
 function generateRandomString(length) {
@@ -26,7 +24,7 @@ async function sha256(plain) {
     return base64encode(hash);
 }
 
-// --- Step 1: login with Spotify ---
+// --- Spotify login ---
 async function loginWithSpotify() {
     const codeVerifier = generateRandomString(128);
     localStorage.setItem("spotify_code_verifier", codeVerifier);
@@ -43,7 +41,7 @@ async function loginWithSpotify() {
     window.location = url.toString();
 }
 
-// --- Step 2: exchange code for access token ---
+// --- Exchange code for access token ---
 async function getAccessToken(code, codeVerifier) {
     const body = new URLSearchParams({
         grant_type: "authorization_code",
@@ -73,41 +71,49 @@ async function getAccessToken(code, codeVerifier) {
     }
 }
 
-// --- Step 3: check active devices ---
-async function getActiveDevice(token) {
+// --- Get list of devices ---
+async function getDevices(token) {
     try {
         const res = await fetch("https://api.spotify.com/v1/me/player/devices", {
             headers: { Authorization: `Bearer ${token}` }
         });
         const data = await res.json();
-
-        if (!data.devices || data.devices.length === 0) return null;
-
-        // Pick the first active device
-        const active = data.devices.find(d => d.is_active);
-        return active || null;
+        return data.devices || [];
     } catch (err) {
         console.error("Error fetching devices:", err);
-        return null;
+        return [];
     }
 }
 
-// --- Step 4: fetch currently playing track ---
+// --- Transfer playback to a device ---
+async function transferPlayback(token, deviceId) {
+    try {
+        await fetch(`https://api.spotify.com/v1/me/player`, {
+            method: "PUT",
+            headers: { 
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ device_ids: [deviceId], play: false })
+        });
+        console.log(`Transferred playback to device ID: ${deviceId}`);
+    } catch (err) {
+        console.error("Failed to transfer playback:", err);
+    }
+}
+
+// --- Get currently playing track ---
 async function getCurrentTrack(token) {
     try {
         const res = await fetch("https://api.spotify.com/v1/me/player/currently-playing", {
             headers: { Authorization: `Bearer ${token}` }
         });
-
-        if (res.status === 204) return null; // No track currently playing
-        if (res.status === 403) return null; // No active device
-
+        if (res.status === 204 || res.status === 403) return null;
         if (!res.ok) {
             const text = await res.text();
             console.warn("Failed to fetch current track:", text);
             return null;
         }
-
         const data = await res.json();
         return data.item ? data : null;
     } catch (err) {
@@ -116,7 +122,7 @@ async function getCurrentTrack(token) {
     }
 }
 
-// --- Step 5: update DOM ---
+// --- Update DOM ---
 async function showCurrentTrack(token) {
     const elTrack = document.getElementById("track");
     const elArtist = document.getElementById("artist");
@@ -125,37 +131,44 @@ async function showCurrentTrack(token) {
 
     if (!elTrack || !elArtist || !elStatus || !elAlbumArt) return;
 
-    const activeDevice = await getActiveDevice(token);
+    let devices = await getDevices(token);
+    let active = devices.find(d => d.is_active);
 
-    if (!activeDevice) {
-        elTrack.textContent = "";
-        elArtist.textContent = "";
-        elStatus.textContent = "Start playing Spotify on a device!";
-        elAlbumArt.style.display = "none";
-        console.log("No active device found. Waiting for playback...");
-        return;
+    // If no active device, pick your phone automatically
+    if (!active) {
+        const phoneDevice = devices.find(d => d.name.toLowerCase().includes("phone"));
+        if (phoneDevice) {
+            await transferPlayback(token, phoneDevice.id);
+            active = phoneDevice;
+        }
     }
 
     const track = await getCurrentTrack(token);
 
-    if (track) {
+    if (track && active) {
         const name = track.item.name;
         const artists = track.item.artists.map(a => a.name).join(", ");
         const albumImage = track.item.album.images[0]?.url || "";
 
         elTrack.textContent = name;
         elArtist.textContent = artists;
-        elStatus.textContent = `Now Playing on ${activeDevice.name}`;
+        elStatus.textContent = `Now Playing on ${active.name}`;
         elAlbumArt.src = albumImage;
         elAlbumArt.style.display = "block";
 
-        console.log(`Currently playing: ${name} by ${artists} on ${activeDevice.name}`);
+        console.log(`Currently playing: ${name} by ${artists} on ${active.name}`);
+    } else if (active) {
+        elTrack.textContent = "";
+        elArtist.textContent = "";
+        elStatus.textContent = `No track currently playing on ${active.name}`;
+        elAlbumArt.style.display = "none";
+        console.log(`Active device found (${active.name}) but no track playing`);
     } else {
         elTrack.textContent = "";
         elArtist.textContent = "";
-        elStatus.textContent = `No track currently playing on ${activeDevice.name}`;
+        elStatus.textContent = "Start playing Spotify on a device!";
         elAlbumArt.style.display = "none";
-        console.log(`Active device found (${activeDevice.name}) but no track playing`);
+        console.log("No active device found. Waiting for playback...");
     }
 }
 
