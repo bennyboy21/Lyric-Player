@@ -1,8 +1,8 @@
-// Make sure this script is loaded as a module:
+// Make sure this script is loaded as a module
 // <script type="module" src="script.js"></script>
 
 const clientId = "86d5980bc6284ccba0515e63ddd32845";
-const redirectUri = "https://bennyboy21.github.io/Lyric-Player/player/"; // must match Spotify dashboard
+const redirectUri = "https://bennyboy21.github.io/Lyric-Player/player/";
 const scopes = ["user-read-playback-state","user-read-currently-playing"].join(" ");
 
 // --- PKCE helpers ---
@@ -72,15 +72,14 @@ async function getAccessToken(code, codeVerifier) {
     }
 }
 
-// --- Step 3: fetch currently playing track ---
+// --- Step 3: fetch currently playing track safely ---
 async function getCurrentTrack(token) {
     try {
         const res = await fetch("https://api.spotify.com/v1/me/player/currently-playing", {
             headers: { Authorization: `Bearer ${token}` }
         });
 
-        if (res.status === 204) return null; // no track currently playing
-        if (res.status === 403) return null; // no active device
+        if (res.status === 204 || res.status === 403) return null;
 
         if (!res.ok) {
             const text = await res.text();
@@ -88,26 +87,34 @@ async function getCurrentTrack(token) {
             return null;
         }
 
-        return await res.json();
+        const data = await res.json();
+        return data.item ? data : null;
     } catch (err) {
         console.error("Error fetching current track:", err);
         return null;
     }
 }
 
-// --- Step 4: update the DOM ---
+// --- Step 4: update DOM with track info ---
 async function showCurrentTrack(token) {
-    const track = await getCurrentTrack(token);
-    const el = document.getElementById("track-info");
-    if (!el) return;
+    const trackEl = document.getElementById("track");
+    const artistEl = document.getElementById("artist");
+    const albumArtEl = document.getElementById("albumArt");
 
-    if (track && track.item) {
-        const name = track.item.name;
-        const artists = track.item.artists.map(a => a.name).join(", ");
-        el.textContent = `${name} — ${artists}`;
-        console.log(`Currently playing: ${name} by ${artists}`);
+    if (!trackEl || !artistEl || !albumArtEl) return;
+
+    const track = await getCurrentTrack(token);
+
+    if (track) {
+        trackEl.textContent = track.item.name;
+        artistEl.textContent = track.item.artists.map(a => a.name).join(", ");
+        albumArtEl.src = track.item.album.images[0]?.url || "";
+        albumArtEl.style.display = "block";
+        console.log(`Currently playing: ${track.item.name} by ${track.item.artists.map(a => a.name).join(", ")}`);
     } else {
-        el.textContent = "Start playing Spotify on a device!";
+        trackEl.textContent = "Start playing Spotify on a device!";
+        artistEl.textContent = "";
+        albumArtEl.style.display = "none";
         console.log("No track currently playing or no active device");
     }
 }
@@ -130,7 +137,7 @@ async function showCurrentTrack(token) {
         return;
     }
 
-    // Show track immediately and then every 5 seconds
+    // Poll every 5 seconds until a track is playing
     await showCurrentTrack(token);
     setInterval(() => showCurrentTrack(token), 5000);
 })();
