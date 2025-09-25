@@ -1,4 +1,4 @@
-// Newest Script
+// Newest 3 Script
 
 const clientId = "86d5980bc6284ccba0515e63ddd32845";
 const redirectUri = "https://bennyboy21.github.io/Lyric-Player/player/";
@@ -77,13 +77,20 @@ async function getDevices(token) {
         const res = await fetch("https://api.spotify.com/v1/me/player/devices", {
             headers: { Authorization: `Bearer ${token}` }
         });
-        const data = await res.json();
-        return data.devices || [];
+        const text = await res.text();
+        try {
+            const data = JSON.parse(text);
+            return data.devices || [];
+        } catch {
+            console.warn("Spotify devices response was not JSON:", text);
+            return [];
+        }
     } catch (err) {
         console.error("Error fetching devices:", err);
         return [];
     }
 }
+
 
 // --- Transfer playback to a device ---
 async function transferPlayback(token, deviceId, play = false) {
