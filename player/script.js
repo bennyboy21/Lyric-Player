@@ -121,12 +121,18 @@ async function getCurrentTrack(token) {
         const res = await fetch("https://api.spotify.com/v1/me/player/currently-playing", {
             headers: { Authorization: `Bearer ${token}` }
         });
-        if (res.status === 204 || res.status === 403) return null;
+
+        if (res.status === 204 || res.status === 403) {
+            // No track / no active device: silently return null
+            return null;
+        }
+
         if (!res.ok) {
             const text = await res.text();
             console.warn("Failed to fetch current track:", text);
             return null;
         }
+
         const data = await res.json();
         return data.item ? data : null;
     } catch (err) {
