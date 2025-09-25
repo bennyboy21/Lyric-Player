@@ -1,0 +1,27 @@
+body {
+    font-family: Arial, sans-serif;
+    background: #121212;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    text-align: center;
+}
+
+img {
+    border-radius: 8px;
+    margin: 20px 0;
+    width: 300px;
+}
+
+#track {
+    font-size: 1.5rem;
+    margin: 10px 0;
+}
+
+#artist {
+    font-size: 1.2rem;
+    color: #b3b3b3;
+}
