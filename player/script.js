@@ -13,7 +13,7 @@ async function getAccessToken() {
   const body = new URLSearchParams({
     grant_type: "authorization_code",
     code,
-    redirect_uri: "https://bennyboy21.github.io/player", // must match redirect URI in Spotify Dashboard
+    redirect_uri: "https://bennyboy21.github.io/Lyric-Player/player/", // must match redirect URI in Spotify Dashboard
     client_id: "86d5980bc6284ccba0515e63ddd32845",
     code_verifier: codeVerifier
   });
