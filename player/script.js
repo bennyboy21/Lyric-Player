@@ -1,4 +1,4 @@
-// Newest 1 Script
+// Newest Script
 
 const clientId = "86d5980bc6284ccba0515e63ddd32845";
 const redirectUri = "https://bennyboy21.github.io/Lyric-Player/player/";
