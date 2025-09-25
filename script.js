@@ -1,5 +1,5 @@
 const clientId = "86d5980bc6284ccba0515e63ddd32845"; // from Spotify dashboard
-const redirectUri = "https://github.com/bennyboy21/Lyric-Player/player"; 
+const redirectUri = "https://github.com/bennyboy21/Lyric-Player/"; 
  // your page URL
 const scopes = [
   "user-read-playback-state",
