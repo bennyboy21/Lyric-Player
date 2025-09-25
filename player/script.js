@@ -1,8 +1,8 @@
-// Make sure this script is loaded as a module
+// Make sure this script is loaded as a module:
 // <script type="module" src="script.js"></script>
 
 const clientId = "86d5980bc6284ccba0515e63ddd32845";
-const redirectUri = "https://bennyboy21.github.io/Lyric-Player/player/";
+const redirectUri = "https://bennyboy21.github.io/Lyric-Player/player/"; // must match Spotify dashboard
 const scopes = ["user-read-playback-state","user-read-currently-playing"].join(" ");
 
 // --- PKCE helpers ---
@@ -79,7 +79,9 @@ async function getCurrentTrack(token) {
             headers: { Authorization: `Bearer ${token}` }
         });
 
-        if (res.status === 204 || res.status === 403) return null;
+        if (res.status === 204 || res.status === 403) {
+            return null; // No track or inactive device
+        }
 
         if (!res.ok) {
             const text = await res.text();
@@ -95,26 +97,34 @@ async function getCurrentTrack(token) {
     }
 }
 
-// --- Step 4: update DOM with track info ---
+// --- Step 4: update DOM and keep polling until a track is playing ---
 async function showCurrentTrack(token) {
-    const trackEl = document.getElementById("track");
-    const artistEl = document.getElementById("artist");
-    const albumArtEl = document.getElementById("albumArt");
+    const elTrack = document.getElementById("track");
+    const elArtist = document.getElementById("artist");
+    const elStatus = document.getElementById("status");
+    const elAlbumArt = document.getElementById("albumArt");
 
-    if (!trackEl || !artistEl || !albumArtEl) return;
+    if (!elTrack || !elArtist || !elStatus || !elAlbumArt) return;
 
     const track = await getCurrentTrack(token);
 
     if (track) {
-        trackEl.textContent = track.item.name;
-        artistEl.textContent = track.item.artists.map(a => a.name).join(", ");
-        albumArtEl.src = track.item.album.images[0]?.url || "";
-        albumArtEl.style.display = "block";
-        console.log(`Currently playing: ${track.item.name} by ${track.item.artists.map(a => a.name).join(", ")}`);
+        const name = track.item.name;
+        const artists = track.item.artists.map(a => a.name).join(", ");
+        const albumImage = track.item.album.images[0]?.url || "";
+
+        elTrack.textContent = name;
+        elArtist.textContent = artists;
+        elStatus.textContent = "Now Playing";
+        elAlbumArt.src = albumImage;
+        elAlbumArt.style.display = "block";
+
+        console.log(`Currently playing: ${name} by ${artists}`);
     } else {
-        trackEl.textContent = "Start playing Spotify on a device!";
-        artistEl.textContent = "";
-        albumArtEl.style.display = "none";
+        elTrack.textContent = "";
+        elArtist.textContent = "";
+        elStatus.textContent = "Start playing Spotify on a device!";
+        elAlbumArt.style.display = "none";
         console.log("No track currently playing or no active device");
     }
 }
