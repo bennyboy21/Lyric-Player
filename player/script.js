@@ -1,4 +1,4 @@
-// My Newest Script
+// Newest 1 Script
 
 const clientId = "86d5980bc6284ccba0515e63ddd32845";
 const redirectUri = "https://bennyboy21.github.io/Lyric-Player/player/";
@@ -86,7 +86,7 @@ async function getDevices(token) {
 }
 
 // --- Transfer playback to a device ---
-async function transferPlayback(token, deviceId) {
+async function transferPlayback(token, deviceId, play = false) {
     try {
         await fetch(`https://api.spotify.com/v1/me/player`, {
             method: "PUT",
@@ -94,11 +94,24 @@ async function transferPlayback(token, deviceId) {
                 Authorization: `Bearer ${token}`,
                 "Content-Type": "application/json"
             },
-            body: JSON.stringify({ device_ids: [deviceId], play: false })
+            body: JSON.stringify({ device_ids: [deviceId], play })
         });
         console.log(`Transferred playback to device ID: ${deviceId}`);
     } catch (err) {
         console.error("Failed to transfer playback:", err);
+    }
+}
+
+// --- Start playback on a device (if no track is playing) ---
+async function startPlayback(token, deviceId) {
+    try {
+        await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+            method: "PUT",
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        console.log("Playback started automatically.");
+    } catch (err) {
+        console.error("Failed to start playback:", err);
     }
 }
 
@@ -134,11 +147,11 @@ async function showCurrentTrack(token) {
     let devices = await getDevices(token);
     let active = devices.find(d => d.is_active);
 
-    // If no active device, pick your phone automatically
+    // If no active device, pick your phone and start playback
     if (!active) {
-        const phoneDevice = devices.find(d => d.name.toLowerCase().includes("phone"));
+        const phoneDevice = devices.find(d => d.name.toLowerCase().includes("phone")) || devices[0];
         if (phoneDevice) {
-            await transferPlayback(token, phoneDevice.id);
+            await transferPlayback(token, phoneDevice.id, true); // transfer and start
             active = phoneDevice;
         }
     }
@@ -160,13 +173,14 @@ async function showCurrentTrack(token) {
     } else if (active) {
         elTrack.textContent = "";
         elArtist.textContent = "";
-        elStatus.textContent = `No track currently playing on ${active.name}`;
+        elStatus.textContent = `Waiting for track on ${active.name}...`;
         elAlbumArt.style.display = "none";
-        console.log(`Active device found (${active.name}) but no track playing`);
+        // Start playback automatically
+        await startPlayback(token, active.id);
     } else {
         elTrack.textContent = "";
         elArtist.textContent = "";
-        elStatus.textContent = "Start playing Spotify on a device!";
+        elStatus.textContent = "No active device found.";
         elAlbumArt.style.display = "none";
         console.log("No active device found. Waiting for playback...");
     }
