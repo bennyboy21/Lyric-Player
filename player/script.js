@@ -2,7 +2,7 @@
 // <script type="module" src="script.js"></script>
 
 const clientId = "86d5980bc6284ccba0515e63ddd32845";
-const redirectUri = "https://bennyboy21.github.io/Lyric-Player/player/"; // must match Spotify dashboard
+const redirectUri = "https://bennyboy21.github.io/Lyric-Player/player/";
 const scopes = ["user-read-playback-state","user-read-currently-playing"].join(" ");
 
 // --- PKCE helpers ---
@@ -72,16 +72,34 @@ async function getAccessToken(code, codeVerifier) {
     }
 }
 
-// --- Step 3: fetch currently playing track safely ---
+// --- Step 3: check active devices ---
+async function getActiveDevice(token) {
+    try {
+        const res = await fetch("https://api.spotify.com/v1/me/player/devices", {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+
+        if (!data.devices || data.devices.length === 0) return null;
+
+        // Pick the first active device
+        const active = data.devices.find(d => d.is_active);
+        return active || null;
+    } catch (err) {
+        console.error("Error fetching devices:", err);
+        return null;
+    }
+}
+
+// --- Step 4: fetch currently playing track ---
 async function getCurrentTrack(token) {
     try {
         const res = await fetch("https://api.spotify.com/v1/me/player/currently-playing", {
             headers: { Authorization: `Bearer ${token}` }
         });
 
-        if (res.status === 204 || res.status === 403) {
-            return null; // No track or inactive device
-        }
+        if (res.status === 204) return null; // No track currently playing
+        if (res.status === 403) return null; // No active device
 
         if (!res.ok) {
             const text = await res.text();
@@ -97,7 +115,7 @@ async function getCurrentTrack(token) {
     }
 }
 
-// --- Step 4: update DOM and keep polling until a track is playing ---
+// --- Step 5: update DOM ---
 async function showCurrentTrack(token) {
     const elTrack = document.getElementById("track");
     const elArtist = document.getElementById("artist");
@@ -105,6 +123,17 @@ async function showCurrentTrack(token) {
     const elAlbumArt = document.getElementById("albumArt");
 
     if (!elTrack || !elArtist || !elStatus || !elAlbumArt) return;
+
+    const activeDevice = await getActiveDevice(token);
+
+    if (!activeDevice) {
+        elTrack.textContent = "";
+        elArtist.textContent = "";
+        elStatus.textContent = "Start playing Spotify on a device!";
+        elAlbumArt.style.display = "none";
+        console.log("No active device found. Waiting for playback...");
+        return;
+    }
 
     const track = await getCurrentTrack(token);
 
@@ -115,17 +144,17 @@ async function showCurrentTrack(token) {
 
         elTrack.textContent = name;
         elArtist.textContent = artists;
-        elStatus.textContent = "Now Playing";
+        elStatus.textContent = `Now Playing on ${activeDevice.name}`;
         elAlbumArt.src = albumImage;
         elAlbumArt.style.display = "block";
 
-        console.log(`Currently playing: ${name} by ${artists}`);
+        console.log(`Currently playing: ${name} by ${artists} on ${activeDevice.name}`);
     } else {
         elTrack.textContent = "";
         elArtist.textContent = "";
-        elStatus.textContent = "Start playing Spotify on a device!";
+        elStatus.textContent = `No track currently playing on ${activeDevice.name}`;
         elAlbumArt.style.display = "none";
-        console.log("No track currently playing or no active device");
+        console.log(`Active device found (${activeDevice.name}) but no track playing`);
     }
 }
 
@@ -147,7 +176,7 @@ async function showCurrentTrack(token) {
         return;
     }
 
-    // Poll every 5 seconds until a track is playing
+    // Poll every 5 seconds
     await showCurrentTrack(token);
     setInterval(() => showCurrentTrack(token), 5000);
 })();
